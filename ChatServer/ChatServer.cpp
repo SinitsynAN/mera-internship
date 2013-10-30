@@ -1,6 +1,7 @@
 #include "ChatServer.h"
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <fcntl.h>
 #include <stdio.h>
 
 ChatServer::ChatServer()
@@ -23,6 +24,10 @@ bool ChatServer::InitSocket(unsigned short port)
             perror("Socket isn't created\n");
             return isSocketValid;
         }
+        
+        //select-changes begin here
+        fcntl(listener, F_SETFL, O_NONBLOCK);
+        //select-changes end here
 
         socketAddress.sin_family = AF_INET;
         socketAddress.sin_port = htons(port);
@@ -45,11 +50,33 @@ void ChatServer::Start()
         if (isSocketValid) {
             printf("Server is successfully started\n");
             while(1) {
-                printf("Waiting a message...\n > ");
+                //select-changes begin here
+                fd_set readset;
+                FD_ZERO(&readset);
+                FD_SET(listener, &readset);
+                
+                timeval timeout;
+                timeout.tv_sec = 15;
+                timeout.tv_usec = 0;
+                
+                if (select(listener + 1, &readset, NULL, NULL, &timeout) <= 0) {
+                    perror("Problems with select\n");
+                    break;
+                }
+                
+                if (FD_ISSET(listener, &readset)) {
+                    bytesRead = recvfrom(listener, buffer, BUFFER_SIZE, 0, NULL, NULL);
+                    buffer[bytesRead] = '\0';
+                    printf("%s", buffer);
+                }
+                //select-changes end here
+                
+                /* without  select (blocking)
+                 * printf("Waiting a message...\n > ");
                 bytesRead = recvfrom(listener, buffer, BUFFER_SIZE, 0, NULL, NULL);
                 buffer[bytesRead] = '\0';
                 printf("%s", buffer);
-                printf("Done\n");
+                printf("Done\n");*/
             }
         }
         else {
