@@ -27,6 +27,7 @@ bool ChatServer::InitSocket(unsigned short port)
         socketAddress.sin_family = AF_INET;
         socketAddress.sin_port = htons(port);
         socketAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+        
         if (bind(listener, (struct sockaddr *) &socketAddress, sizeof(socketAddress)) < 0) {
             perror("Problems with socket binding\n");
             return isSocketValid;
@@ -44,9 +45,11 @@ void ChatServer::Start()
         if (isSocketValid) {
             printf("Server is successfully started\n");
             while(1) {
+                printf("Waiting a message...\n > ");
                 bytesRead = recvfrom(listener, buffer, BUFFER_SIZE, 0, NULL, NULL);
                 buffer[bytesRead] = '\0';
                 printf("%s", buffer);
+                printf("Done\n");
             }
         }
         else {

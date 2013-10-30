@@ -1,20 +1,20 @@
-#include <cstdlib>
 #include <stdio.h>
-#include "IpAddressConverter.h"
 #include "ChatClient.h"
 
-using namespace std;
+#define PORT 3425
+#define MAX_LENGTH 100
 
 int main(int argc, char** argv)
 {
-    IpAddressConverter ipc;
-    ipc.TryConvert("127.000.000.001");
-    unsigned long ip = ipc.GetAddress();
+    char ip[] = "127.0.0.1";
+    char message[] = {0};
     
     ChatClient cc;
-    cc.InitSocket(ip, 3425);
-    for (int i = 0; i < 5; i++)
-        cc.Send("Message from client\n");
+    cc.InitSocket(ip, PORT);
+    for (int i = 0; i < 3; i++) {
+        fgets(message, MAX_LENGTH, stdin);
+        cc.Send(message);
+    }
             
     return 0;
 }

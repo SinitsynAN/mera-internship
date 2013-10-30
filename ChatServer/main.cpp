@@ -1,12 +1,12 @@
-#include <cstdlib>
+#include <stdlib.h>
 #include "ChatServer.h"
 
-using namespace std;
+#define PORT 3425
 
 int main(int argc, char** argv)
 {
     ChatServer cs;
-    cs.InitSocket(3425);
+    cs.InitSocket(PORT);
     cs.Start();
     
     return 0;
