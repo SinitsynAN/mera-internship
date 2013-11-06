@@ -3,87 +3,135 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <unistd.h>
 
 ChatServer::ChatServer()
 {
-    listener = -1;
+    sSocket = -1;
+    isSSocketBinded = false;
+    isSSocketConnected = false;
+    
+    clientSocket = -1;
+    isCSocketBinded = false;
+    
+    isStarted = false;
+    
     for (int i = 0; i < BUFFER_SIZE; i++)
         buffer[i] = 0;
-    bytesRead = 0;
-    isSocketValid = false;
-    isStarted = false;
 }
 
-bool ChatServer::InitSocket(unsigned short port)
+ChatServer::~ChatServer()
+{
+    close(sSocket);
+    close(clientSocket);
+}
+
+void ChatServer::InitSSocket(char serverCommFilepath[], char supervisorCommFilepath[])
 {
     if (!isStarted) {
-        isSocketValid = false;
-
-        listener = socket(AF_INET, SOCK_DGRAM, 0);
-        if (listener < 0) {
-            perror("Socket isn't created\n");
-            return isSocketValid;
+        sSocket = socket(AF_UNIX, SOCK_DGRAM, 0);
+        if (sSocket < 0) {
+            perror("sSocket isn't created");
         }
+        fcntl(sSocket, F_SETFL, O_NONBLOCK);
         
-        //select-changes begin here
-        fcntl(listener, F_SETFL, O_NONBLOCK);
-        //select-changes end here
-
-        socketAddress.sin_family = AF_INET;
-        socketAddress.sin_port = htons(port);
-        socketAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+        serverAddress.sun_family = AF_UNIX;
+        strcpy(serverAddress.sun_path, serverCommFilepath);
+        unlink(serverAddress.sun_path);
         
-        if (bind(listener, (struct sockaddr *) &socketAddress, sizeof(socketAddress)) < 0) {
-            perror("Problems with socket binding\n");
-            return isSocketValid;
-        }
-
-        isSocketValid = true;
+        BindSSocket();
+        
+        supervisorAddress.sun_family = AF_UNIX;
+        strcpy(supervisorAddress.sun_path, supervisorCommFilepath);
+        
+        ConnectSSocket();
     }
-    
-    return isSocketValid;
+}
+
+void ChatServer::BindSSocket()
+{
+   if (bind(sSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) {
+        perror("Problems with svSocket binding");
+    }
+    isSSocketBinded = true; 
+}
+
+void ChatServer::ConnectSSocket()
+{
+    if (connect(sSocket, (struct sockaddr *) &supervisorAddress, sizeof(supervisorAddress)) < 0) {
+        perror("Problems with svSocket connecting");
+    }
+    isSSocketConnected = true;
+}
+
+void ChatServer::InitClientSocket(unsigned short port)
+{
+    if (!isStarted) {    
+        clientSocket = socket(AF_INET, SOCK_DGRAM, 0);
+        if (clientSocket < 0) {
+            perror("clientSocket isn't created");
+        }
+        fcntl(clientSocket, F_SETFL, O_NONBLOCK);
+
+        clientSocketAddress.sin_family = AF_INET;
+        clientSocketAddress.sin_port = htons(port);
+        clientSocketAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+        
+        if (bind(clientSocket, (struct sockaddr *) &clientSocketAddress, sizeof(clientSocketAddress)) < 0) {
+            perror("Problems with clientSocket binding");
+        }
+        isCSocketBinded = true;
+    }
 }
 
 void ChatServer::Start()
 {
     if (!isStarted) {
-        if (isSocketValid) {
+        if (isSSocketBinded && isSSocketConnected && isCSocketBinded) {
             printf("Server is successfully started\n");
+            send(sSocket, "I started", 10, 0);
+            int bytesReceived = 0;
             while(1) {
-                //select-changes begin here
-                fd_set readset;
-                FD_ZERO(&readset);
-                FD_SET(listener, &readset);
+                fd_set readSet;
+                FD_ZERO(&readSet);
+                FD_SET(sSocket, &readSet);
+                FD_SET(clientSocket, &readSet);
                 
                 timeval timeout;
-                timeout.tv_sec = 15;
+                timeout.tv_sec = TIMEOUT_SEC;
                 timeout.tv_usec = 0;
                 
-                if (select(listener + 1, &readset, NULL, NULL, &timeout) <= 0) {
-                    perror("Problems with select\n");
+                int maxFd = sSocket > clientSocket ? sSocket : clientSocket;
+                int selectResult = select(maxFd + 1, &readSet, NULL, NULL, &timeout);
+                if (selectResult < 0) {
+                    perror("Problems with select");
                     break;
                 }
-                
-                if (FD_ISSET(listener, &readset)) {
-                    bytesRead = recvfrom(listener, buffer, BUFFER_SIZE, 0, NULL, NULL);
-                    buffer[bytesRead] = '\0';
-                    printf("%s", buffer);
+                else if (selectResult == 0) {
+                    printf("Timeout is expired\n");
+                    continue;
                 }
-                //select-changes end here
                 
-                /* without  select (blocking)
-                 * printf("Waiting a message...\n > ");
-                bytesRead = recvfrom(listener, buffer, BUFFER_SIZE, 0, NULL, NULL);
-                buffer[bytesRead] = '\0';
-                printf("%s", buffer);
-                printf("Done\n");*/
+                if (FD_ISSET(sSocket, &readSet)) {
+                    bytesReceived = recv(sSocket, buffer, BUFFER_SIZE, 0);
+                    buffer[bytesReceived] = '\0';
+                    printf("%s\n", buffer);
+                    
+                    send(sSocket, buffer, bytesReceived, 0);
+                }
+                
+                if (FD_ISSET(clientSocket, &readSet)) {
+                    bytesReceived = recvfrom(clientSocket, buffer, BUFFER_SIZE, 0, NULL, NULL);
+                    buffer[bytesReceived] = '\0';
+                    printf("%s\n", buffer);
+                }
             }
         }
         else {
-            perror("Problems with socket\n");
+            perror("Problems with connections");
         }
     }
     else {
-        perror("Server has been already started\n");
+        perror("Server has been already started");
     }
 }

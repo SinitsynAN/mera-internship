@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "ChatClient.h"
 
 #define PORT 3425
@@ -7,12 +8,15 @@
 int main(int argc, char** argv)
 {
     char ip[] = "127.0.0.1";
-    char message[] = {0};
+    char message[MAX_LENGTH] = {0};
     
     ChatClient cc;
     cc.InitSocket(ip, PORT);
-    for (int i = 0; i < 3; i++) {
+    while(1) {
         fgets(message, MAX_LENGTH, stdin);
+        fflush(stdin);
+        if (strcmp(message, "quit\n") == 0)
+            break;
         cc.Send(message);
     }
             
