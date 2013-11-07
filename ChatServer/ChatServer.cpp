@@ -88,7 +88,7 @@ void ChatServer::Start()
 {
     if (!isStarted) {
         if (isSSocketBinded && isSSocketConnected && isCSocketBinded) {
-            printf("Server is successfully started\n");
+            printf(">[S]: Server is successfully started\n");
             send(sSocket, "I started", 10, 0);
             int bytesReceived = 0;
             while(1) {
@@ -108,14 +108,14 @@ void ChatServer::Start()
                     break;
                 }
                 else if (selectResult == 0) {
-                    printf("Timeout is expired\n");
+                    printf(">[S]: Timeout is expired\n");
                     continue;
                 }
                 
                 if (FD_ISSET(sSocket, &readSet)) {
                     bytesReceived = recv(sSocket, buffer, BUFFER_SIZE, 0);
                     buffer[bytesReceived] = '\0';
-                    printf("%s\n", buffer);
+                    printf(">[S]: %s\n", buffer);
                     
                     send(sSocket, buffer, bytesReceived, 0);
                 }
@@ -123,7 +123,7 @@ void ChatServer::Start()
                 if (FD_ISSET(clientSocket, &readSet)) {
                     bytesReceived = recvfrom(clientSocket, buffer, BUFFER_SIZE, 0, NULL, NULL);
                     buffer[bytesReceived] = '\0';
-                    printf("%s\n", buffer);
+                    printf(">[S]: %s\n", buffer);
                 }
             }
         }

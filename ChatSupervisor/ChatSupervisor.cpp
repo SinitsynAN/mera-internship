@@ -65,7 +65,7 @@ void ChatSupervisor::Start()
 {
     if (!isStarted) {
         if (isSocketBinded) {
-            printf("Supervisor is successfully started\n");
+            printf(">[SV]: Supervisor is successfully started\n");
             int bytesReceived = 0;
             while(1) {
                 fd_set readSet;
@@ -87,21 +87,21 @@ void ChatSupervisor::Start()
                     break;
                 }
                 else if (selectResult == 0) {
-                    printf("Timeout is expired\n");
+                    printf(">[SV]: Timeout is expired\n");
                     continue;
                 }
 
                 if (FD_ISSET(svSocket, &writeSet)) {
                     if (isServerAvailable) {
-                        sleep(5);
                         send(svSocket, "Are you alive?", 15, 0);
+                        sleep(5);
                     }
                 }
                 
                 if (FD_ISSET(svSocket, &readSet)) {
                     bytesReceived = recv(svSocket, buffer, BUFFER_SIZE, 0);
                     buffer[bytesReceived] = '\0';
-                    printf("%s\n", buffer);
+                    printf(">[SV]: %s\n", buffer);
                     fflush(stdout);
                     
                     if (!isServerAvailable && strcmp(buffer, "I started") == 0) {
@@ -117,7 +117,7 @@ void ChatSupervisor::Start()
                         continue;
                     }
                     else {
-                        printf("Server is unavailable\n");
+                        printf(">[SV]: Server is unavailable\n");
                         break;
                     }
                 }
