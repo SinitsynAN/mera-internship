@@ -2,7 +2,7 @@
 #define	CHATSERVER_H
 
 #define BUFFER_SIZE 1024
-#define TIMEOUT_SEC 10
+#define SELECT_TIMEOUT_SEC 10
 
 #include <sys/un.h>
 #include <netinet/in.h>
@@ -10,28 +10,30 @@
 class ChatServer
 {
 private:
-    int sSocket;
+    int socketForServer;
     struct sockaddr_un serverAddress;
     struct sockaddr_un supervisorAddress;
-    bool isSSocketBinded;
-    bool isSSocketConnected;
+    bool isSocketForServerBinded;
+    bool isSocketForServerConnected;
     
-    int clientSocket;
+    int socketForClients;
     struct sockaddr_in clientSocketAddress;
-    bool isCSocketBinded;
+    bool isSocketForClientsBinded;
     
     bool isStarted;
     
     char buffer[BUFFER_SIZE];
     
-    void BindSSocket();
-    void ConnectSSocket();
+    void BindSocketForServer();
+    void ConnectSocketForServer();
+    
+    void Work();
     
 public:
     ChatServer();
     ~ChatServer();
-    void InitSSocket(char serverCommFilepath[], char supervisorCommFilepath[]);
-    void InitClientSocket(unsigned short port);
+    void InitSocketForServer(char *serverCommFilepath, char *supervisorCommFilepath);
+    void InitSocketForClients(unsigned short port);
     void Start();
 };
 

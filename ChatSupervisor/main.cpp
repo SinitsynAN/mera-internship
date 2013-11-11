@@ -9,7 +9,7 @@ using namespace std;
 int main(int argc, char** argv)
 {
     ChatSupervisor csv;
-    csv.InitSocket(SV_COMM_FILEPATH, SERVER_COMM_FILEPATH);
+    csv.InitSocketForServer(SV_COMM_FILEPATH, SERVER_COMM_FILEPATH);
     csv.Start();
     
     return 0;

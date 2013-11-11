@@ -2,35 +2,43 @@
 #define	CHATSUPERVISOR_H
 
 #define BUFFER_SIZE 1024
-#define TIMEOUT_SEC 10
 #define CONNECTION_TRIES_COUNT 5
+#define SELECT_TIMEOUT_SEC 10
+#define POSSIBLE_DELAY_SEC 5
 
 #include <sys/un.h>
+#include "ServerInfo.h"
 
 class ChatSupervisor
 {
 private:
-    int svSocket;
+    int socketForServer;
     struct sockaddr_un supervisorAddress;
     struct sockaddr_un serverAddress;
-    bool isSocketBinded;
-    bool isSocketConnected;
+    bool isSocketForServerBinded;
+    bool isSocketForServerConnected;
     
     bool isStarted;
     
-    bool isServerAvailable;
+    ServerInfo serverInfo;
     int connectionTriesCount;
     
     char buffer[BUFFER_SIZE];
     
-    void BindSocket();
-    void ConnectSocket();
+    void BindSocketForServer();
+    void ConnectSocketForServer();
     
 public:
     ChatSupervisor();
     ~ChatSupervisor();
-    void InitSocket(char supervisorCommFilepath[], char serverCommFilepath[]);
+    void InitSocketForServer(char supervisorCommFilepath[], char serverCommFilepath[]);
     void Start();
+    void Work();
+    void StartServer();
+    void RestartServer();
+    void CheckServerReadiness();
+    void CheckServerAvailability();
+    void OnServerAnswer();
 };
 
 #endif

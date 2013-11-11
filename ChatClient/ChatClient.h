@@ -7,14 +7,16 @@ class ChatClient
 {
 private:
     int sender;
-    struct sockaddr_in socketAddress;
+    struct sockaddr_in senderAddress;
     bool isSocketOpened;
+    char *clientNickname;
     
 public:
     ChatClient();
     ~ChatClient();
-    bool InitSocket(char targetAddress[], unsigned short targetPort);
-    void Send(char message[]);
+    void SetNickname(char *nickname);
+    void InitSocket(char *targetAddress, unsigned short targetPort);
+    void Send(char *message);
 };
 
 #endif
