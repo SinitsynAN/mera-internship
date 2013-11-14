@@ -2,7 +2,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <fcntl.h>
-#include <stdio.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -17,15 +17,10 @@ ChatSupervisor::ChatSupervisor()
     
     isStarted = false;
     
-    serverInfo.serverPID = -1;
-    serverInfo.isStarted = false;
-    serverInfo.isAvailable = false;
-    serverInfo.initTime = 0;
-    serverInfo.lastConnectionTryTime = 0;
-    serverInfo.startTime = 0;
-    serverInfo.lastRequestTime = 0;
-    serverInfo.lastAnswerTime = 0;
-    serverInfo.possibleDelay = POSSIBLE_DELAY_SEC;
+    serverInfo.Init();
+    serverInfo.possibleStartDelay = POSSIBLE_START_DELAY_SEC;
+    serverInfo.requestDelay = REQUEST_DELAY_SEC;
+    serverInfo.possibleAnswerDelay = POSSIBLE_ANSWER_DELAY_SEC;
             
     connectionTriesCount = CONNECTION_TRIES_COUNT;
     
@@ -142,7 +137,7 @@ void ChatSupervisor::StartServer()
     if (pid < 0)
         perror("Fork error");
     else if (pid == 0) {
-        execv("/home/Silgur/chatserver", NULL); // ~!~!~!~!~!~!~!~!~!~!~!~!~
+        execl("chatserver", NULL);
         perror("Exec error");
     }
     else
@@ -154,14 +149,10 @@ void ChatSupervisor::RestartServer()
     kill(serverInfo.serverPID, SIGKILL);
     waitpid(serverInfo.serverPID, NULL, NULL);
     
-    serverInfo.serverPID = -1;
-    serverInfo.isStarted = false;
-    serverInfo.isAvailable = false;
-    serverInfo.initTime = 0;
-    serverInfo.lastConnectionTryTime = 0;
-    serverInfo.startTime = 0;
-    serverInfo.lastRequestTime = 0;
-    serverInfo.lastAnswerTime = 0;
+    serverInfo.Init();
+    serverInfo.possibleStartDelay = POSSIBLE_START_DELAY_SEC;
+    serverInfo.requestDelay = REQUEST_DELAY_SEC;
+    serverInfo.possibleAnswerDelay = POSSIBLE_ANSWER_DELAY_SEC;
     
     StartServer();
 }
@@ -170,13 +161,14 @@ void ChatSupervisor::CheckServerReadiness()
 {
     time_t currentTime;
     time(&currentTime);
-    if (!serverInfo.isStarted && currentTime - serverInfo.lastConnectionTryTime > serverInfo.possibleDelay) {
+    if (!serverInfo.isStarted && currentTime - serverInfo.lastConnectionTryTime > serverInfo.possibleStartDelay) {
         if (connectionTriesCount > 0) {
             serverInfo.lastConnectionTryTime = currentTime;
             connectionTriesCount--;
         }
         else {
-            printf("Server hasn't started\n");
+            perror("Server hasn't started");
+            exit(1); // ~!~!~!~!~!~
         }
     }
 }
@@ -188,12 +180,12 @@ void ChatSupervisor::CheckServerAvailability()
         
         time(&currentTime);
         
-        if (currentTime - serverInfo.lastAnswerTime > 2 * serverInfo.possibleDelay) {
+        if (currentTime - serverInfo.lastAnswerTime > serverInfo.possibleAnswerDelay) {
             serverInfo.isAvailable = false;
         }
         
         if (serverInfo.isAvailable) {
-            if (currentTime - serverInfo.lastRequestTime > serverInfo.possibleDelay) {
+            if (currentTime - serverInfo.lastRequestTime > serverInfo.requestDelay) {
                 send(socketForServer, "Are you alive?", 15, 0);
                 serverInfo.lastRequestTime = currentTime;
             }

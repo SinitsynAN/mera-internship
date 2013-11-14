@@ -10,11 +10,11 @@
 class ChatServer
 {
 private:
-    int socketForServer;
+    int socketForSupervisor;
     struct sockaddr_un serverAddress;
     struct sockaddr_un supervisorAddress;
-    bool isSocketForServerBinded;
-    bool isSocketForServerConnected;
+    bool isSocketForSupervisorBinded;
+    bool isSocketForSupervisorConnected;
     
     int socketForClients;
     struct sockaddr_in clientSocketAddress;
@@ -24,15 +24,15 @@ private:
     
     char buffer[BUFFER_SIZE];
     
-    void BindSocketForServer();
-    void ConnectSocketForServer();
+    void BindSocketForSupervisor();
+    void ConnectSocketForSupervisor();
     
     void Work();
     
 public:
     ChatServer();
     ~ChatServer();
-    void InitSocketForServer(char *serverCommFilepath, char *supervisorCommFilepath);
+    void InitSocketForSupervisor(char *serverCommFilepath, char *supervisorCommFilepath);
     void InitSocketForClients(unsigned short port);
     void Start();
 };

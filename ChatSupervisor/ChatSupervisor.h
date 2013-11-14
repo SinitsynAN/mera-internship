@@ -2,9 +2,14 @@
 #define	CHATSUPERVISOR_H
 
 #define BUFFER_SIZE 1024
+
 #define CONNECTION_TRIES_COUNT 5
+
 #define SELECT_TIMEOUT_SEC 10
-#define POSSIBLE_DELAY_SEC 5
+
+#define POSSIBLE_START_DELAY_SEC 5
+#define REQUEST_DELAY_SEC 5
+#define POSSIBLE_ANSWER_DELAY_SEC 10
 
 #include <sys/un.h>
 #include "ServerInfo.h"

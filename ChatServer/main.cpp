@@ -8,7 +8,7 @@
 int main(int argc, char** argv)
 {
     ChatServer cs;
-    cs.InitSocketForServer(SERVER_COMM_FILEPATH, SV_COMM_FILEPATH);
+    cs.InitSocketForSupervisor(SERVER_COMM_FILEPATH, SV_COMM_FILEPATH);
     cs.InitSocketForClients(PORT);
     cs.Start();
     
