@@ -1,13 +1,13 @@
 #include "ChatSupervisor.h"
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <fcntl.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/wait.h>
 #include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <time.h>
+#include <unistd.h>
 
 ChatSupervisor::ChatSupervisor()
 {
@@ -19,26 +19,30 @@ ChatSupervisor::ChatSupervisor()
     
     serverInfo.Init();
     serverInfo.possibleStartDelay = POSSIBLE_START_DELAY_SEC;
-    serverInfo.requestDelay = REQUEST_DELAY_SEC;
+    serverInfo.requestTimeout = REQUEST_TIMEOUT_SEC;
     serverInfo.possibleAnswerDelay = POSSIBLE_ANSWER_DELAY_SEC;
             
     connectionTriesCount = CONNECTION_TRIES_COUNT;
     
     for (int i = 0; i < BUFFER_SIZE; i ++)
         buffer[i] = 0;
+    
+    logger = new Logger(LOG_FILEPATH);
 }
 
 ChatSupervisor::~ChatSupervisor()
 {
     close(socketForServer);
+    delete logger;
 }
 
-void ChatSupervisor::InitSocketForServer(char supervisorCommFilepath[], char serverCommFilepath[])
+void ChatSupervisor::InitSocketForServer(char *supervisorCommFilepath, char *serverCommFilepath)
 {
     if (!isStarted) {
         socketForServer = socket(AF_UNIX, SOCK_DGRAM, 0);
         if (socketForServer < 0) {
-            perror("socketForServer isn't created");
+            logger->Log("socketForServer isn't created");
+            //perror("socketForServer isn't created");
         }
         fcntl(socketForServer, F_SETFL, O_NONBLOCK);
         
@@ -55,16 +59,18 @@ void ChatSupervisor::InitSocketForServer(char supervisorCommFilepath[], char ser
 
 void ChatSupervisor::BindSocketForServer()
 {
-   if (bind(socketForServer, (struct sockaddr *) &supervisorAddress, sizeof(supervisorAddress)) < 0) {
-            perror("Problems with socketForServer binding");
-        }
-        isSocketForServerBinded = true; 
+    if (bind(socketForServer, (struct sockaddr *) &supervisorAddress, sizeof(supervisorAddress)) < 0) {
+       logger->Log("Problems with socketForServer binding");
+        //perror("Problems with socketForServer binding");
+    }
+    isSocketForServerBinded = true; 
 }
 
 void ChatSupervisor::ConnectSocketForServer()
 {
     if (connect(socketForServer, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) {
-        perror("Problems with socketForServer connecting");
+        logger->Log("Problems with socketForServer connecting");
+        //perror("Problems with socketForServer connecting");
     }
     isSocketForServerConnected = true;
 }
@@ -73,15 +79,18 @@ void ChatSupervisor::Start()
 {
     if (!isStarted) {
         if (isSocketForServerBinded) {
-            printf("Supervisor is successfully started\n");
+            logger->Log("Supervisor is successfully started");
+            printf("\nSupervisor is successfully started\n");
             Work();
         }
         else {
-            perror("socketForServer isn't binded");
+            logger->Log("socketForServer isn't binded");
+            //perror("socketForServer isn't binded");
         }
     }
     else {
-        perror("Server has been already started");
+        logger->Log("Server has been already started");
+        //perror("Server has been already started");
     }
 }
 
@@ -105,7 +114,8 @@ void ChatSupervisor::Work()
         int maxFd = socketForServer;
         int selectResult = select(maxFd + 1, &readSet, &writeSet, NULL, &timeout);
         if (selectResult < 0) {
-            perror("Problems with select");
+            logger->Log("Problems with select");
+            //perror("Problems with select");
             break;
         }
         else if (selectResult == 0) {
@@ -135,10 +145,12 @@ void ChatSupervisor::StartServer()
 {
     pid_t pid = fork();
     if (pid < 0)
-        perror("Fork error");
+        logger->Log("Fork error");
+        //perror("Fork error");
     else if (pid == 0) {
         execl("chatserver", NULL);
-        perror("Exec error");
+        logger->Log("Exec error");
+        //perror("Exec error");
     }
     else
         serverInfo.serverPID = pid;
@@ -149,9 +161,12 @@ void ChatSupervisor::RestartServer()
     kill(serverInfo.serverPID, SIGKILL);
     waitpid(serverInfo.serverPID, NULL, NULL);
     
+    logger->Log("Trying to restart server");
+    printf("\nTrying to restart server...\n");
+    
     serverInfo.Init();
     serverInfo.possibleStartDelay = POSSIBLE_START_DELAY_SEC;
-    serverInfo.requestDelay = REQUEST_DELAY_SEC;
+    serverInfo.requestTimeout = REQUEST_TIMEOUT_SEC;
     serverInfo.possibleAnswerDelay = POSSIBLE_ANSWER_DELAY_SEC;
     
     StartServer();
@@ -167,7 +182,8 @@ void ChatSupervisor::CheckServerReadiness()
             connectionTriesCount--;
         }
         else {
-            perror("Server hasn't started");
+            logger->Log("Server hasn't started");
+            //perror("Server hasn't started");
             exit(1); // ~!~!~!~!~!~
         }
     }
@@ -185,7 +201,7 @@ void ChatSupervisor::CheckServerAvailability()
         }
         
         if (serverInfo.isAvailable) {
-            if (currentTime - serverInfo.lastRequestTime > serverInfo.requestDelay) {
+            if (currentTime - serverInfo.lastRequestTime > serverInfo.requestTimeout) {
                 send(socketForServer, "Are you alive?", 15, 0);
                 serverInfo.lastRequestTime = currentTime;
             }

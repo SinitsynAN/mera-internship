@@ -1,8 +1,8 @@
 #ifndef SERVERINFO_H
 #define	SERVERINFO_H
 
-#include <unistd.h>
 #include <time.h>
+#include <unistd.h>
 
 struct ServerInfo
 {
@@ -11,9 +11,11 @@ struct ServerInfo
     time_t startTime;
     time_t lastRequestTime;
     time_t lastAnswerTime;
+    
     time_t possibleStartDelay;
-    time_t requestDelay;
+    time_t requestTimeout;
     time_t possibleAnswerDelay;
+    
     bool isStarted;
     bool isAvailable;
     
@@ -24,9 +26,7 @@ struct ServerInfo
         startTime = 0;
         lastRequestTime = 0;
         lastAnswerTime = 0;
-        possibleStartDelay = 0;
-        requestDelay = 0;
-        possibleAnswerDelay = 0;
+        
         isStarted = false;
         isAvailable = false;
     }
