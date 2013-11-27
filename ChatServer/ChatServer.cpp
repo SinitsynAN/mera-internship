@@ -1,8 +1,9 @@
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
+
 #include "ChatServer.h"
 
 ChatServer::ChatServer()
@@ -18,6 +19,8 @@ ChatServer::ChatServer()
     
     for (int i = 0; i < BUFFER_SIZE; i++)
         buffer[i] = 0;
+    
+    broadcast = 1;
 }
 
 ChatServer::~ChatServer()
@@ -77,6 +80,14 @@ void ChatServer::InitSocketForClients(unsigned short port)
         clientSocketAddress.sin_port = htons(port);
         clientSocketAddress.sin_addr.s_addr = htonl(INADDR_ANY);
         
+        broadcastAddress.sin_family = AF_INET;
+        broadcastAddress.sin_port = htons(port);
+        broadcastAddress.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+        
+        if (setsockopt(socketForClients, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) < 0) {
+            perror("setsockopt");
+        }
+        
         if (bind(socketForClients, (struct sockaddr *) &clientSocketAddress, sizeof(clientSocketAddress)) < 0) {
             perror("Problems with clientSocket binding");
         }
@@ -102,9 +113,9 @@ void ChatServer::Start()
 }
 
 void ChatServer::Work()
-{
+{    
     int bytesReceived = 0;
-    while(1) {
+    while(1) { 
         fd_set readSet;
         FD_ZERO(&readSet);
         FD_SET(socketForSupervisor, &readSet);
@@ -134,9 +145,22 @@ void ChatServer::Work()
         }
 
         if (FD_ISSET(socketForClients, &readSet)) {
-            bytesReceived = recvfrom(socketForClients, buffer, BUFFER_SIZE, 0, NULL, NULL);
+            struct sockaddr_in foo;
+            socklen_t len = 0;
+            
+            bytesReceived = recvfrom(socketForClients, buffer, BUFFER_SIZE, 0, (struct sockaddr *) &foo, &len);
+            //bytesReceived = recvfrom(socketForClients, buffer, BUFFER_SIZE, 0, NULL, NULL);
             buffer[bytesReceived] = '\0';
             printf(">[S]: %s\n", buffer);
+            
+            sendto(socketForClients, buffer, bytesReceived, 0, (struct sockaddr *) &foo, len);
+            
+            sendto(socketForClients, buffer, bytesReceived, 0, (struct sockaddr *) &broadcastAddress, sizeof(broadcastAddress));
+            
+            foo.sin_family = AF_INET;
+            foo.sin_port = htons(3426);
+            foo.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+            sendto(socketForClients, buffer, bytesReceived, 0, (struct sockaddr *) &foo, sizeof(foo));
         }
     }
 }

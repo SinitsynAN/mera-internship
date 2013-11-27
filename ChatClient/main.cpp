@@ -18,15 +18,17 @@ int main(int argc, char** argv)
     
     ChatClient cc;
     cc.SetNickname(nickname);
-    cc.InitSocket(ip, PORT);
-    while(1) {
+    cc.InitSocketForServer(ip, PORT);
+    /*while(1) {
         printf(">: ");
         fgets(message, MAX_MESSAGE_LENGTH, stdin);
         fflush(stdin);
         if (strcmp(message, "quit\n") == 0)
             break;
         cc.Send(message);
-    }
+    }*/
+    cc.InitGraphics(argc, argv);
+    cc.Start();
             
     return 0;
 }

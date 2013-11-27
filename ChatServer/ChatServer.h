@@ -4,8 +4,8 @@
 #define BUFFER_SIZE 1024
 #define SELECT_TIMEOUT_SEC 10
 
-#include <sys/un.h>
 #include <netinet/in.h>
+#include <sys/un.h>
 
 class ChatServer
 {
@@ -19,6 +19,9 @@ private:
     int socketForClients;
     struct sockaddr_in clientSocketAddress;
     bool isSocketForClientsBinded;
+    
+    int broadcast;
+    struct sockaddr_in broadcastAddress;
     
     bool isStarted;
     
