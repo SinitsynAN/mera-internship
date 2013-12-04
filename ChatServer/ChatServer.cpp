@@ -1,8 +1,10 @@
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
+
 #include "ChatServer.h"
 
 ChatServer::ChatServer()
@@ -16,8 +18,10 @@ ChatServer::ChatServer()
     
     isStarted = false;
     
-    for (int i = 0; i < BUFFER_SIZE; i++)
-        buffer[i] = 0;
+    memset(buffer, '\0', BUFFER_SIZE * sizeof(char));
+    
+    memset(clientAddresses, 0, MAX_CLIENT_COUNT * sizeof(struct sockaddr_in));
+    clientCount = 0;
 }
 
 ChatServer::~ChatServer()
@@ -64,9 +68,19 @@ void ChatServer::ConnectSocketForSupervisor()
     isSocketForSupervisorConnected = true;
 }
 
-void ChatServer::InitSocketForClients(unsigned short port)
+void ChatServer::InitSocketForClients(char *filepath)
 {
-    if (!isStarted) {    
+    if (!isStarted) {
+        FILE *config = fopen(filepath, "r");
+        if (config == NULL) {
+            perror("Can't open config file");
+            return;
+        }
+
+        char port[10] = {0};
+        fscanf(config, "%s", port);
+        fclose(config);
+        
         socketForClients = socket(AF_INET, SOCK_DGRAM, 0);
         if (socketForClients < 0) {
             perror("clientSocket isn't created");
@@ -74,12 +88,14 @@ void ChatServer::InitSocketForClients(unsigned short port)
         fcntl(socketForClients, F_SETFL, O_NONBLOCK);
 
         clientSocketAddress.sin_family = AF_INET;
-        clientSocketAddress.sin_port = htons(port);
+        clientSocketAddress.sin_port = htons(atoi(port));
         clientSocketAddress.sin_addr.s_addr = htonl(INADDR_ANY);
         
         if (bind(socketForClients, (struct sockaddr *) &clientSocketAddress, sizeof(clientSocketAddress)) < 0) {
             perror("Problems with clientSocket binding");
+            return;
         }
+        
         isSocketForClientsBinded = true;
     }
 }
@@ -101,10 +117,45 @@ void ChatServer::Start()
     }
 }
 
-void ChatServer::Work()
+bool ChatServer::CompareAddresses(struct sockaddr_in firstAddress, struct sockaddr_in secondAddress)
 {
+    if (firstAddress.sin_family != secondAddress.sin_family)
+        return false;
+    if (firstAddress.sin_addr.s_addr != secondAddress.sin_addr.s_addr)
+        return false;
+    if (firstAddress.sin_port != secondAddress.sin_port)
+        return false;
+    return true;
+}
+
+void ChatServer::AddSend(struct sockaddr_in clientAddress, int messageLength)
+{
+    bool doesExist = false;
+    for (int i = 0; i < clientCount; i++) {
+        if (CompareAddresses(clientAddress, clientAddresses[i])) {
+            doesExist = true;
+            sendto(socketForClients, "MSG_RCVD", 9, 0, (struct sockaddr *) &(clientAddresses[i]), sizeof(clientAddresses[i]));
+        }
+        sendto(socketForClients, buffer, messageLength, 0, (struct sockaddr *) &(clientAddresses[i]), sizeof(clientAddresses[i]));
+    }
+    if (!doesExist) {
+        if (clientCount < MAX_CLIENT_COUNT) {
+            clientAddresses[clientCount] = clientAddress;
+            sendto(socketForClients, "MSG_RCVD", 9, 0, (struct sockaddr *) &(clientAddresses[clientCount]), sizeof(clientAddresses[clientCount]));
+            sendto(socketForClients, buffer, messageLength, 0, (struct sockaddr *) &(clientAddresses[clientCount]), sizeof(clientAddresses[clientCount]));
+            clientCount++;
+        }
+        else {
+            perror("Can't add a client");
+        }
+    }
+    
+}
+
+void ChatServer::Work()
+{    
     int bytesReceived = 0;
-    while(1) {
+    while(1) { 
         fd_set readSet;
         FD_ZERO(&readSet);
         FD_SET(socketForSupervisor, &readSet);
@@ -134,9 +185,14 @@ void ChatServer::Work()
         }
 
         if (FD_ISSET(socketForClients, &readSet)) {
-            bytesReceived = recvfrom(socketForClients, buffer, BUFFER_SIZE, 0, NULL, NULL);
+            struct sockaddr_in clientAddress;
+            socklen_t len = sizeof(clientAddress);
+            
+            bytesReceived = recvfrom(socketForClients, buffer, BUFFER_SIZE, 0, (struct sockaddr *) &clientAddress, &len);
             buffer[bytesReceived] = '\0';
             printf(">[S]: %s\n", buffer);
+            
+            AddSend(clientAddress, bytesReceived);
         }
     }
 }
