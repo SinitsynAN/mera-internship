@@ -12,7 +12,6 @@ private:
     FILE *log;
     char *logFilepath;
     bool doesLogExist;
-    //bool isLogOpened;
     
     char currentTimeStr[TIME_STR_SIZE];
     
@@ -23,8 +22,7 @@ private:
 public:
     Logger(char *filepath);
     ~Logger();
-    /*void Open();
-    void Close();*/
+    
     void Log(char *message);
 };
 

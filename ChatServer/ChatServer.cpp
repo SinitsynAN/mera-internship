@@ -1,11 +1,12 @@
+#include "ChatServer.h"
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
-
-#include "ChatServer.h"
 
 ChatServer::ChatServer()
 {
@@ -20,23 +21,36 @@ ChatServer::ChatServer()
     
     memset(buffer, '\0', BUFFER_SIZE * sizeof(char));
     
-    memset(clientAddresses, 0, MAX_CLIENT_COUNT * sizeof(struct sockaddr_in));
+    for (int i = 0; i < MAX_CLIENT_COUNT; i++) {
+        memset(&(clients[i].address), 0, sizeof(struct sockaddr_in));
+        clients[i].nickname = NULL;
+        clients[i].lastMessageTime = -1;
+    }
     clientCount = 0;
+    
+    serviceMessages.Fill();
+    
+    logger = new Logger(LOG_FILEPATH);
 }
 
 ChatServer::~ChatServer()
 {
     close(socketForSupervisor);
     close(socketForClients);
+    
+    for (int i = 0; i < MAX_CLIENT_COUNT; i++)
+        if (strlen(clients[i].nickname) != NULL)
+            delete clients[i].nickname;
+    
+    delete logger;
 }
 
 void ChatServer::InitSocketForSupervisor(char *serverCommFilepath, char *supervisorCommFilepath)
 {
     if (!isStarted) {
         socketForSupervisor = socket(AF_UNIX, SOCK_DGRAM, 0);
-        if (socketForSupervisor < 0) {
-            perror("socketForSupervisor isn't created");
-        }
+        if (socketForSupervisor < 0)
+            logger->Log("socketForSupervisor hasn't been created");
         fcntl(socketForSupervisor, F_SETFL, O_NONBLOCK);
         
         serverAddress.sun_family = AF_UNIX;
@@ -54,17 +68,15 @@ void ChatServer::InitSocketForSupervisor(char *serverCommFilepath, char *supervi
 
 void ChatServer::BindSocketForSupervisor()
 {
-   if (bind(socketForSupervisor, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) {
-        perror("Problems with socketForSupervisor binding");
-    }
+    if (bind(socketForSupervisor, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0)
+        logger->Log("socketForSupervisor hasn't been binded");
     isSocketForSupervisorBinded = true; 
 }
 
 void ChatServer::ConnectSocketForSupervisor()
 {
-    if (connect(socketForSupervisor, (struct sockaddr *) &supervisorAddress, sizeof(supervisorAddress)) < 0) {
-        perror("Problems with socketForSupervisor connecting");
-    }
+    if (connect(socketForSupervisor, (struct sockaddr *) &supervisorAddress, sizeof(supervisorAddress)) < 0)
+        logger->Log("socketForSupervisor hasn't been connected");
     isSocketForSupervisorConnected = true;
 }
 
@@ -73,7 +85,7 @@ void ChatServer::InitSocketForClients(char *filepath)
     if (!isStarted) {
         FILE *config = fopen(filepath, "r");
         if (config == NULL) {
-            perror("Can't open config file");
+            logger->Log("Can't open configuration file");
             return;
         }
 
@@ -82,9 +94,8 @@ void ChatServer::InitSocketForClients(char *filepath)
         fclose(config);
         
         socketForClients = socket(AF_INET, SOCK_DGRAM, 0);
-        if (socketForClients < 0) {
-            perror("clientSocket isn't created");
-        }
+        if (socketForClients < 0)
+            logger->Log("socketForClients hasn't been created");
         fcntl(socketForClients, F_SETFL, O_NONBLOCK);
 
         clientSocketAddress.sin_family = AF_INET;
@@ -92,7 +103,7 @@ void ChatServer::InitSocketForClients(char *filepath)
         clientSocketAddress.sin_addr.s_addr = htonl(INADDR_ANY);
         
         if (bind(socketForClients, (struct sockaddr *) &clientSocketAddress, sizeof(clientSocketAddress)) < 0) {
-            perror("Problems with clientSocket binding");
+            logger->Log("socketForClients hasn't been binded");
             return;
         }
         
@@ -104,17 +115,16 @@ void ChatServer::Start()
 {
     if (!isStarted) {
         if (isSocketForSupervisorBinded && isSocketForSupervisorConnected && isSocketForClientsBinded) {
-            printf("Server is successfully started\n");
-            send(socketForSupervisor, "I've started", 13, 0);
+            printf("\nServer has been successfully started\n");
+            logger->Log("Server has been successfully started");
+            send(socketForSupervisor, serviceMessages.out[0], strlen(serviceMessages.out[0]) + 1, 0);
             Work();
         }
-        else {
-            perror("Problems with connections");
-        }
+        else
+            logger->Log("Problems with the connections");
     }
-    else {
-        perror("Server has been already started");
-    }
+    else
+        logger->Log("Server has been already started");
 }
 
 bool ChatServer::CompareAddresses(struct sockaddr_in firstAddress, struct sockaddr_in secondAddress)
@@ -128,28 +138,66 @@ bool ChatServer::CompareAddresses(struct sockaddr_in firstAddress, struct sockad
     return true;
 }
 
+int ChatServer::FindClient(struct sockaddr_in address)
+{
+    if (clientCount == 0)
+        return -1;
+    
+    for (int i = 0; i < clientCount; i++)
+        if (CompareAddresses(address, clients[i].address))
+            return i;
+}
+
+void ChatServer::RemoveClient(int number)
+{
+    if (clientCount == 0)
+        return;
+    
+    clients[number].address = clients[clientCount - 1].address;
+    clients[number].lastMessageTime = clients[clientCount - 1].lastMessageTime;
+    delete clients[number].nickname;
+    clients[number].nickname = new char(strlen(clients[clientCount].nickname) + 1);
+    strcpy(clients[number].nickname, clients[clientCount - 1].nickname);
+    
+    memset(&(clients[clientCount - 1].address), 0, sizeof(struct sockaddr_in));
+    delete clients[clientCount - 1].nickname;
+    clients[clientCount - 1].lastMessageTime = -1;
+    
+    clientCount--;
+}
+
 void ChatServer::AddSend(struct sockaddr_in clientAddress, int messageLength)
 {
-    bool doesExist = false;
-    for (int i = 0; i < clientCount; i++) {
-        if (CompareAddresses(clientAddress, clientAddresses[i])) {
-            doesExist = true;
-            sendto(socketForClients, "MSG_RCVD", 9, 0, (struct sockaddr *) &(clientAddresses[i]), sizeof(clientAddresses[i]));
-        }
-        sendto(socketForClients, buffer, messageLength, 0, (struct sockaddr *) &(clientAddresses[i]), sizeof(clientAddresses[i]));
-    }
-    if (!doesExist) {
+    int clientNumber = FindClient(clientAddress);
+    if (clientNumber < 0) {
         if (clientCount < MAX_CLIENT_COUNT) {
-            clientAddresses[clientCount] = clientAddress;
-            sendto(socketForClients, "MSG_RCVD", 9, 0, (struct sockaddr *) &(clientAddresses[clientCount]), sizeof(clientAddresses[clientCount]));
-            sendto(socketForClients, buffer, messageLength, 0, (struct sockaddr *) &(clientAddresses[clientCount]), sizeof(clientAddresses[clientCount]));
+            clients[clientCount].address = clientAddress;
+            clients[clientCount].nickname = new char(messageLength);
+            strncpy(clients[clientCount].nickname, buffer, messageLength);
+            clients[clientCount].lastMessageTime = time(0);
+            
+            sendto(socketForClients, serviceMessages.out[2], strlen(serviceMessages.out[2]) + 1, 0, 
+                    (struct sockaddr *) &(clients[clientCount].address), sizeof(clients[clientCount].address));
+            
             clientCount++;
         }
-        else {
-            perror("Can't add a client");
+        else
+            logger->Log("Can't add a client");
+    }
+    else {
+        sendto(socketForClients, serviceMessages.out[2], strlen(serviceMessages.out[2]) + 1, 0, 
+                (struct sockaddr *) &(clients[clientNumber].address), sizeof(clients[clientNumber].address));
+        
+        clients[clientNumber].lastMessageTime = time(0);
+        
+        char *nick = clients[clientNumber].nickname;
+        for (int i = 0; i < clientCount; i++) {
+            sendto(socketForClients, nick, strlen(nick) + 1, 0, 
+                    (struct sockaddr *) &(clients[i].address), sizeof(clients[i].address));
+            sendto(socketForClients, buffer, messageLength, 0, 
+                    (struct sockaddr *) &(clients[i].address), sizeof(clients[i].address));
         }
     }
-    
 }
 
 void ChatServer::Work()
@@ -168,7 +216,7 @@ void ChatServer::Work()
         int maxFd = socketForSupervisor > socketForClients ? socketForSupervisor : socketForClients;
         int selectResult = select(maxFd + 1, &readSet, NULL, NULL, &timeout);
         if (selectResult < 0) {
-            perror("Problems with select");
+            logger->Log("Select error");
             break;
         }
         else if (selectResult == 0) {
@@ -179,18 +227,29 @@ void ChatServer::Work()
         if (FD_ISSET(socketForSupervisor, &readSet)) {
             bytesReceived = recv(socketForSupervisor, buffer, BUFFER_SIZE, 0);
             buffer[bytesReceived] = '\0';
-            printf(">[S]: %s\n", buffer);
-
-            send(socketForSupervisor, "I'm alive", 10, 0);
+            
+            if (strcmp(buffer, serviceMessages.in[0]) == 0)
+                send(socketForSupervisor, serviceMessages.out[1], strlen(serviceMessages.out[1]) + 1, 0);
         }
 
         if (FD_ISSET(socketForClients, &readSet)) {
             struct sockaddr_in clientAddress;
             socklen_t len = sizeof(clientAddress);
             
-            bytesReceived = recvfrom(socketForClients, buffer, BUFFER_SIZE, 0, (struct sockaddr *) &clientAddress, &len);
+            bytesReceived = recvfrom(socketForClients, buffer, BUFFER_SIZE, 0, 
+                    (struct sockaddr *) &clientAddress, &len);
             buffer[bytesReceived] = '\0';
-            printf(">[S]: %s\n", buffer);
+            
+            //printf("%s\n", buffer);
+            
+            if (strcmp(buffer, serviceMessages.in[2]) == 0) {
+                //printf("\nclient-exit\n");
+                int n = FindClient(clientAddress);
+                //printf("%d\n", n);
+                if (n >= 0)
+                    RemoveClient(n);
+                //printf("%d\n", clientCount);
+            }
             
             AddSend(clientAddress, bytesReceived);
         }

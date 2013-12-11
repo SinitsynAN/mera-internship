@@ -1,7 +1,6 @@
-#include <stdio.h>
-#include <string.h>
-
 #include "ChatClient.h"
+
+#include <stdio.h>
 
 #define MAX_NICKNAME_LEGNTH 15
 #define MAX_MESSAGE_LENGTH 100
@@ -16,7 +15,7 @@ int main(int argc, char** argv)
     
     ChatClient cc;
     cc.SetNickname(nickname);
-    cc.InitSocketForServer("client_config.txt");
+    cc.InitSocketForServer("client_config");
     cc.InitGraphics(argc, argv);
     cc.Start();
             

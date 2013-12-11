@@ -1,13 +1,19 @@
 #ifndef CHATCLIENT_H
 #define	CHATCLIENT_H
 
+#include "CServiceMessages.h"
+
+#include <Logger.h>
+#include <MessageManager.h>
+
 #include <gtk/gtk.h>
 #include <netinet/in.h>
 
-#include <MessageManager.h>
+#define SELECT_TIMEOUT_SEC 10
 
 #define BUFFER_SIZE 1024
-#define SELECT_TIMEOUT_SEC 10
+
+#define LOG_PATH "/tmp/c_log"
 
 class ChatClient
 {
@@ -22,6 +28,10 @@ private:
     
     MessageManager *messageManager;
     int confirmationCount;
+    
+    CServiceMessages serviceMessages;
+    
+    Logger *logger;
     
     GtkWidget *window;
     GtkWidget *table;
@@ -42,6 +52,7 @@ private:
 public:
     ChatClient();
     ~ChatClient();
+    
     void SetNickname(char *nickname);
     void InitSocketForServer(char *filepath);
     void InitGraphics(int argc, char *argv[]);

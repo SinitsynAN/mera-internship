@@ -2,20 +2,25 @@
 #define	CHATSUPERVISOR_H
 
 #include "ServerInfo.h"
+#include "SVServiceMessages.h"
+
 #include <Logger.h>
+
 #include <sys/un.h>
-
-#define BUFFER_SIZE 1024
-
-#define CONNECTION_TRIES_COUNT 5
-
-#define SELECT_TIMEOUT_SEC 10
 
 #define POSSIBLE_START_DELAY_SEC 5
 #define REQUEST_TIMEOUT_SEC 5
 #define POSSIBLE_ANSWER_DELAY_SEC 10
 
+#define CONNECTION_TRIES_COUNT 5
+
+#define SELECT_TIMEOUT_SEC 5
+
+#define BUFFER_SIZE 1024
+
 #define LOG_FILEPATH "/tmp/sv_log"
+
+#define SERVER_EXEC "chatserver"
 
 class ChatSupervisor
 {
@@ -32,6 +37,9 @@ private:
     int connectionTriesCount;
     
     char buffer[BUFFER_SIZE];
+    int bytesReceived;
+    
+    SVServiceMessages serviceMessages;
     
     Logger *logger;
     
@@ -41,9 +49,11 @@ private:
 public:
     ChatSupervisor();
     ~ChatSupervisor();
+    
     void InitSocketForServer(char *supervisorCommFilepath, char *serverCommFilepath);
     void Start();
     void Work();
+    
     void StartServer();
     void RestartServer();
     void CheckServerReadiness();

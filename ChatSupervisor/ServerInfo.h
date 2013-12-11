@@ -22,10 +22,10 @@ struct ServerInfo
     void Init()
     {
         serverPID = -1;
-        lastConnectionTryTime = 0;
-        startTime = 0;
-        lastRequestTime = 0;
-        lastAnswerTime = 0;
+        lastConnectionTryTime = -1;
+        startTime = -1;
+        lastRequestTime = -1;
+        lastAnswerTime = -1;
         
         isStarted = false;
         isAvailable = false;

@@ -7,7 +7,7 @@ int main(int argc, char** argv)
 {
     ChatServer cs;
     cs.InitSocketForSupervisor(SERVER_COMM_FILEPATH, SV_COMM_FILEPATH);
-    cs.InitSocketForClients("server_config.txt");
+    cs.InitSocketForClients("server_config");
     cs.Start();
     
     return 0;
