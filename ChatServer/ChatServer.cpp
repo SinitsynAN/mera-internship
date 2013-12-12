@@ -153,14 +153,18 @@ void ChatServer::RemoveClient(int number)
     if (clientCount == 0)
         return;
     
-    clients[number].address = clients[clientCount - 1].address;
-    clients[number].lastMessageTime = clients[clientCount - 1].lastMessageTime;
-    delete clients[number].nickname;
-    clients[number].nickname = new char(strlen(clients[clientCount].nickname) + 1);
-    strcpy(clients[number].nickname, clients[clientCount - 1].nickname);
+    if (clientCount > 1) {
+        clients[number].address = clients[clientCount - 1].address;
+        clients[number].lastMessageTime = clients[clientCount - 1].lastMessageTime;
+
+        delete clients[number].nickname;
+        clients[number].nickname = new char(strlen(clients[clientCount - 1].nickname) + 1);
+        strcpy(clients[number].nickname, clients[clientCount - 1].nickname);
+    }
     
     memset(&(clients[clientCount - 1].address), 0, sizeof(struct sockaddr_in));
     delete clients[clientCount - 1].nickname;
+    clients[clientCount - 1].nickname = NULL;
     clients[clientCount - 1].lastMessageTime = -1;
     
     clientCount--;
@@ -240,15 +244,14 @@ void ChatServer::Work()
                     (struct sockaddr *) &clientAddress, &len);
             buffer[bytesReceived] = '\0';
             
-            //printf("%s\n", buffer);
-            
             if (strcmp(buffer, serviceMessages.in[2]) == 0) {
-                //printf("\nclient-exit\n");
+                printf("\nclient-exit\n");
                 int n = FindClient(clientAddress);
-                //printf("%d\n", n);
+                printf("number %d\n", n);
+                printf("cc %d\n", clientCount);
                 if (n >= 0)
                     RemoveClient(n);
-                //printf("%d\n", clientCount);
+                printf("cc %d\n", clientCount);
             }
             
             AddSend(clientAddress, bytesReceived);

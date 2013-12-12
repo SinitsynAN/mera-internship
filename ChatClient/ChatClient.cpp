@@ -102,15 +102,19 @@ void ChatClient::InitGraphics(int argc, char *argv[])
     gtk_container_set_border_width(GTK_CONTAINER(window), 20);
     gtk_signal_connect(GTK_OBJECT(window), "delete_event", GTK_SIGNAL_FUNC(CrossClickProxy), NULL); 
     
-    table = gtk_table_new(3, 3, TRUE);
+    table = gtk_table_new(4, 4, TRUE);
     gtk_container_add(GTK_CONTAINER(window), table);
     
     button = gtk_button_new_with_label("Send");
-    gtk_table_attach(GTK_TABLE(table), button, 2, 3, 2, 3, GTK_SHRINK, GTK_SHRINK, 0, 0);
+    gtk_table_attach(GTK_TABLE(table), button, 2, 3, 3, 4, GTK_SHRINK, GTK_SHRINK, 0, 0);
     gtk_signal_connect(GTK_OBJECT(button), "clicked", GTK_SIGNAL_FUNC(SendButtonClickProxy), this);
     
+    button = gtk_button_new_with_label("Exit");
+    gtk_table_attach(GTK_TABLE(table), button, 3, 4, 3, 4, GTK_SHRINK, GTK_SHRINK, 0, 0);
+    gtk_signal_connect(GTK_OBJECT(button), "clicked", GTK_SIGNAL_FUNC(ExitButtonClickProxy), this);
+    
     entry = gtk_entry_new();
-    gtk_table_attach_defaults(GTK_TABLE(table), entry, 0, 2, 2, 3);
+    gtk_table_attach_defaults(GTK_TABLE(table), entry, 0, 2, 3, 4);
     gtk_signal_connect(GTK_OBJECT(entry), "activate", GTK_SIGNAL_FUNC(SendButtonClickProxy), this);
     
     textView = gtk_text_view_new();
@@ -118,7 +122,7 @@ void ChatClient::InitGraphics(int argc, char *argv[])
     
     scrolledWindow = gtk_scrolled_window_new(NULL, NULL);
     gtk_container_add(GTK_CONTAINER(scrolledWindow), textView);
-    gtk_table_attach_defaults(GTK_TABLE(table), scrolledWindow, 0, 3, 0, 2);
+    gtk_table_attach_defaults(GTK_TABLE(table), scrolledWindow, 0, 4, 0, 3);
 
     gtk_widget_show_all(window);
 }
@@ -226,7 +230,6 @@ void ChatClient::Send(char *message)
 {
     int msgSize = strlen(message) + 1;
     if (isSocketForServerOK && msgSize > 1) {
-        //printf("%s\n", message);
         sendto(socketForServer, message, msgSize, 0, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
     }
 }
@@ -243,7 +246,6 @@ void ChatClient::OnSendButtonClick()
         printf("\nMessage queue is full\n");
         logger->Log("Message queue is full");
     }
-    //Send(serviceMessages.out[1]);
     
     gtk_entry_set_text(GTK_ENTRY(entry), "");
 }
@@ -254,9 +256,20 @@ void ChatClient::SendButtonClickProxy(GtkWidget* widget, gpointer data)
     cc->OnSendButtonClick();
 }
 
-void ChatClient::OnCrossClick()
+void ChatClient::OnExitButtonClick()
 {
     Send(serviceMessages.out[1]);
+    exit(0);
+}
+
+void ChatClient::ExitButtonClickProxy(GtkWidget* widget, gpointer data)
+{
+    ChatClient *cc = (ChatClient *)data;
+    cc->OnExitButtonClick();
+}
+
+void ChatClient::OnCrossClick()
+{
     exit(0);
 }
 

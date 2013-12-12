@@ -199,6 +199,7 @@ void ChatSupervisor::CheckServerAvailability()
 void ChatSupervisor::OnServerAnswer()
 {
     if (!serverInfo.isStarted && strcmp(buffer, serviceMessages.in[0]) == 0) {
+        logger->Log("Server has been started");
         serverInfo.isStarted = true;
         time(&(serverInfo.startTime));
         serverInfo.isAvailable = true;
