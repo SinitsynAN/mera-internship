@@ -1,6 +1,7 @@
 #ifndef CHATCLIENT_H
 #define	CHATCLIENT_H
 
+#include "Config.h"
 #include "CServiceMessages.h"
 
 #include <Logger.h>
@@ -8,8 +9,6 @@
 
 #include <gtk/gtk.h>
 #include <netinet/in.h>
-
-#define SELECT_TIMEOUT_SEC 10
 
 #define BUFFER_SIZE 1024
 
@@ -21,10 +20,16 @@ private:
     int socketForServer;
     struct sockaddr_in clientAddress;
     struct sockaddr_in serverAddress;
-    bool isSocketForServerOK;
+    bool isSocketForServerCreated;
+    bool isSocketForServerBinded;
+    bool isServerAddressCorrect;
+    
+    Config config;
+    
     char *clientNickname;
     
     char buffer[BUFFER_SIZE];
+    int bytesReceived;
     
     MessageManager *messageManager;
     int confirmationCount;
@@ -33,6 +38,13 @@ private:
     
     Logger *logger;
     
+    bool IsSocketForServerValid();
+    
+    void InitSocketForServer();
+    void Send(char *message);
+    void Work();
+    
+    
     GtkWidget *window;
     GtkWidget *table;
     GtkWidget *button;
@@ -40,8 +52,8 @@ private:
     GtkWidget *textView;
     GtkWidget *scrolledWindow;
     
-    void Work();
-    
+    void OnSettingsButtonClick();
+    static void SettingsButtonClickProxy(GtkWidget *widget, gpointer data);
     void OnSendButtonClick();
     static void SendButtonClickProxy(GtkWidget *widget, gpointer data);
     void OnExitButtonClick();
@@ -56,10 +68,8 @@ public:
     ~ChatClient();
     
     void SetNickname(char *nickname);
-    void InitSocketForServer(char *filepath);
     void InitGraphics(int argc, char *argv[]);
     void Start();
-    void Send(char *message);
 };
 
 #endif

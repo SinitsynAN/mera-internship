@@ -20,7 +20,7 @@
 
 #define LOG_FILEPATH "/tmp/sv_log"
 
-#define SERVER_EXEC "chatserver"
+#define SERVER_EXEC_PATH "chatserver"
 
 class ChatSupervisor
 {

@@ -1,4 +1,5 @@
-#ifndef SVSVSERVICEMESSAGES_H
+#ifndef SVSERVICEMESSAGES_H
+#define SVSERVICEMESSAGES_H
 
 #include <string.h>
 
@@ -16,7 +17,6 @@ struct SVServiceMessages
         strcpy(in[0], "I've started");
         strcpy(in[1], "I'm alive");
     }
-    
 };
 
 #endif
