@@ -20,6 +20,8 @@ ChatClient::ChatClient()
     
     config.Init();
     
+    wereSettingsChangedSuccessfully = false;
+    
     clientNickname = new char[7];
     strcpy(clientNickname, "Anonym");
     
@@ -38,7 +40,7 @@ ChatClient::~ChatClient()
 {
     close(socketForServer);
     delete [] clientNickname;
-    delete messageManager;
+    //delete messageManager; // <--- ??
     delete logger;
 }
 
@@ -76,9 +78,9 @@ void ChatClient::InitSocketForServer()
         printf("\nInvalid IP-address.\n");
         logger->Log("Invalid IP-address");
         isServerAddressCorrect = false;
+        return;
     }
-    else
-        isServerAddressCorrect = true;
+    isServerAddressCorrect = true;
         
     clientAddress.sin_family = AF_INET;
     clientAddress.sin_port = htons(atoi(config.cliPort));
@@ -88,11 +90,10 @@ void ChatClient::InitSocketForServer()
         printf("\nSocket hasn't been binded.\n");
         logger->Log("socketForServer hasn't been binded");
         isSocketForServerBinded = false;
+        return;
     }
-    else {
-        isSocketForServerBinded = true;
-        fcntl(socketForServer, F_SETFL, O_NONBLOCK);
-    }
+    isSocketForServerBinded = true;
+    fcntl(socketForServer, F_SETFL, O_NONBLOCK);
 }
 
 void ChatClient::Start()
@@ -102,6 +103,7 @@ void ChatClient::Start()
     if (IsSocketForServerValid()) {
         printf("\nClient has been successfully started\n");
         logger->Log("Client has been successfully started");
+        wereSettingsChangedSuccessfully = true;
         Work();
     }
     else
@@ -150,7 +152,7 @@ void ChatClient::Work()
                 Send(writeBuf);
             else if (res == 2) {
                 logger->Log("Can't connect to server");
-                exit(5);
+                exit(2);
             }
             else if (res == 3)
                 confirmationCount--;
@@ -186,9 +188,9 @@ void ChatClient::InitGraphics(int argc, char *argv[])
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), "ChatClient"); 
     gtk_container_set_border_width(GTK_CONTAINER(window), 10);
-    gtk_signal_connect(GTK_OBJECT(window), "delete_event", GTK_SIGNAL_FUNC(CrossClickProxy), NULL); 
+    gtk_signal_connect(GTK_OBJECT(window), "delete_event", GTK_SIGNAL_FUNC(ExitButtonClickProxy), NULL); 
     
-    table = gtk_table_new(3, 3, TRUE);
+    table = gtk_table_new(15, 20, FALSE);
     gtk_container_add(GTK_CONTAINER(window), table);
     
     button = gtk_button_new_with_label("Settings");
@@ -196,7 +198,7 @@ void ChatClient::InitGraphics(int argc, char *argv[])
     gtk_signal_connect(GTK_OBJECT(button), "clicked", GTK_SIGNAL_FUNC(SettingsButtonClickProxy), this);
     
     button = gtk_button_new_with_label("Exit");
-    gtk_table_attach(GTK_TABLE(table), button, 2, 3, 0, 1, GTK_SHRINK, GTK_SHRINK, 0, 0);
+    gtk_table_attach(GTK_TABLE(table), button, 19, 20, 0, 1, GTK_SHRINK, GTK_SHRINK, 0, 0);
     gtk_signal_connect(GTK_OBJECT(button), "clicked", GTK_SIGNAL_FUNC(ExitButtonClickProxy), this);
     
     textView = gtk_text_view_new();
@@ -204,14 +206,14 @@ void ChatClient::InitGraphics(int argc, char *argv[])
     
     scrolledWindow = gtk_scrolled_window_new(NULL, NULL);
     gtk_container_add(GTK_CONTAINER(scrolledWindow), textView);
-    gtk_table_attach_defaults(GTK_TABLE(table), scrolledWindow, 0, 3, 1, 2);
+    gtk_table_attach_defaults(GTK_TABLE(table), scrolledWindow, 0, 20, 1, 14);
     
     entry = gtk_entry_new();
-    gtk_table_attach_defaults(GTK_TABLE(table), entry, 0, 2, 2, 3);
+    gtk_table_attach_defaults(GTK_TABLE(table), entry, 0, 19, 14, 15);
     gtk_signal_connect(GTK_OBJECT(entry), "activate", GTK_SIGNAL_FUNC(SendButtonClickProxy), this);
     
     button = gtk_button_new_with_label("Send");
-    gtk_table_attach(GTK_TABLE(table), button, 2, 3, 2, 3, GTK_SHRINK, GTK_SHRINK, 0, 0);
+    gtk_table_attach(GTK_TABLE(table), button, 19, 20, 14, 15, GTK_SHRINK, GTK_SHRINK, 0 ,0);
     gtk_signal_connect(GTK_OBJECT(button), "clicked", GTK_SIGNAL_FUNC(SendButtonClickProxy), this);
 
     gtk_widget_show_all(window);
@@ -293,7 +295,16 @@ void ChatClient::SettingsButtonClickProxy(GtkWidget* widget, gpointer data)
     cc->Send(cc->serviceMessages.out[1]);
     cc->OnSettingsButtonClick();
     cc->InitSocketForServer();
-    cc->Send(cc->clientNickname);
+    
+    if (cc->IsSocketForServerValid()) {
+        if (cc->wereSettingsChangedSuccessfully)
+            cc->Send(cc->clientNickname);
+        else
+            cc->Work();
+        cc->wereSettingsChangedSuccessfully = true;
+    }
+    else
+        cc->wereSettingsChangedSuccessfully = false;
 }
 
 void ChatClient::OnSendButtonClick()
@@ -329,15 +340,4 @@ void ChatClient::ExitButtonClickProxy(GtkWidget* widget, gpointer data)
 {
     ChatClient *cc = (ChatClient *)data;
     cc->OnExitButtonClick();
-}
-
-void ChatClient::OnCrossClick()
-{
-    exit(0);
-}
-
-void ChatClient::CrossClickProxy(GtkWidget* widget, gpointer data)
-{
-    ChatClient *cc = (ChatClient *)data;
-    cc->OnCrossClick();
 }

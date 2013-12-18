@@ -38,6 +38,7 @@ private:
     
     Logger *logger;
     
+    bool wereSettingsChangedSuccessfully; //previous change
     bool IsSocketForServerValid();
     
     void InitSocketForServer();
@@ -58,8 +59,6 @@ private:
     static void SendButtonClickProxy(GtkWidget *widget, gpointer data);
     void OnExitButtonClick();
     static void ExitButtonClickProxy(GtkWidget *widget, gpointer data);
-    void OnCrossClick();
-    static void CrossClickProxy(GtkWidget *widget, gpointer data);
     
     void ShowIncomingMessage(char *message);
     

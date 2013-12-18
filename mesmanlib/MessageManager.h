@@ -4,6 +4,7 @@
 #include <time.h>
 
 #define QUEUE_SIZE 10
+
 #define RESEND_CHANSES 3
 #define RESEND_GAP_SEC 2
 
@@ -28,8 +29,10 @@ private:
 public:
     MessageManager(int messageLength);
     ~MessageManager();
+    
     bool IsQueueFull();
     void AddToQueue(char *message);
+    
     int TryToSend(char *result);
     bool TryToConfirm();
 };

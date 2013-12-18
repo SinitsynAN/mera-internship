@@ -1,6 +1,6 @@
-#include <string.h>
-
 #include "MessageManager.h"
+
+#include <string.h>
 
 MessageManager::MessageManager(int messageLength)
 {
@@ -26,7 +26,8 @@ MessageManager::MessageManager(int messageLength)
 
 MessageManager::~MessageManager()
 {
-    delete [] messages;
+    for (int i = 0; i < QUEUE_SIZE; i++)
+        delete messages[i];
 }
 
 bool MessageManager::IsQueueFull()
