@@ -20,8 +20,6 @@ ChatClient::ChatClient()
     
     config.Init();
     
-    wereSettingsChangedSuccessfully = false;
-    
     clientNickname = new char[7];
     strcpy(clientNickname, "Anonym");
     
@@ -103,7 +101,6 @@ void ChatClient::Start()
     if (IsSocketForServerValid()) {
         printf("\nClient has been successfully started\n");
         logger->Log("Client has been successfully started");
-        wereSettingsChangedSuccessfully = true;
         Work();
     }
     else
@@ -120,57 +117,60 @@ void ChatClient::Send(char *message)
 
 void ChatClient::Work()
 {
-    messageManager->AddToQueue(clientNickname);
+    if (IsSocketForServerValid())
+        messageManager->AddToQueue(clientNickname);
     
-    while(IsSocketForServerValid()) {
-        fd_set readSet;
-        FD_ZERO(&readSet);
-        FD_SET(socketForServer, &readSet);
-        
-        fd_set writeSet;
-        FD_ZERO(&writeSet);
-        FD_SET(socketForServer, &writeSet);
+    while(1) {
+        if (IsSocketForServerValid()) {
+            fd_set readSet;
+            FD_ZERO(&readSet);
+            FD_SET(socketForServer, &readSet);
 
-        timeval timeout;
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 0;
-        
-        int maxFd = socketForServer;
-        int selectResult = select(maxFd + 1, &readSet, &writeSet, NULL, &timeout);
-        if (selectResult < 0) {
-            logger->Log("select error");
-            break;
-        }
-        
-        if (FD_ISSET(socketForServer, &writeSet)) {
-            if (confirmationCount > 0)
-                messageManager->TryToConfirm();
-            
-            char writeBuf[BUFFER_SIZE] = {0};
-            int res = messageManager->TryToSend(writeBuf);
-            if (res == 1)
-                Send(writeBuf);
-            else if (res == 2) {
-                logger->Log("Can't connect to server");
-                exit(2);
-            }
-            else if (res == 3)
-                confirmationCount--;
-        }
+            fd_set writeSet;
+            FD_ZERO(&writeSet);
+            FD_SET(socketForServer, &writeSet);
 
-        if (FD_ISSET(socketForServer, &readSet)) {
-            bytesReceived = recvfrom(socketForServer, buffer, BUFFER_SIZE, 0, NULL, NULL);
-            buffer[bytesReceived] = '\0';
-            
-            if (strcmp(buffer, serviceMessages.in[0]) == 0) {
-                confirmationCount++;
+            timeval timeout;
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 0;
+
+            int maxFd = socketForServer;
+            int selectResult = select(maxFd + 1, &readSet, &writeSet, NULL, &timeout);
+            if (selectResult < 0) {
+                logger->Log("select error");
+                break;
             }
-            else if (strcmp(buffer, serviceMessages.in[1]) == 0) {
-                if (!messageManager->IsQueueFull())
-                    messageManager->AddToQueue(serviceMessages.out[0]);
+
+            if (FD_ISSET(socketForServer, &writeSet)) {
+                if (confirmationCount > 0)
+                    messageManager->TryToConfirm();
+
+                char writeBuf[BUFFER_SIZE] = {0};
+                int res = messageManager->TryToSend(writeBuf);
+                if (res == 1)
+                    Send(writeBuf);
+                else if (res == 2) {
+                    logger->Log("Can't connect to server");
+                    exit(2);
+                }
+                else if (res == 3)
+                    confirmationCount--;
             }
-            else {
-                ShowIncomingMessage(buffer);
+
+            if (FD_ISSET(socketForServer, &readSet)) {
+                bytesReceived = recvfrom(socketForServer, buffer, BUFFER_SIZE, 0, NULL, NULL);
+                buffer[bytesReceived] = '\0';
+
+                if (strcmp(buffer, serviceMessages.in[0]) == 0) {
+                    confirmationCount++;
+                }
+                else if (strcmp(buffer, serviceMessages.in[1]) == 0) {
+                    if (!messageManager->IsQueueFull())
+                        messageManager->AddToQueue(serviceMessages.out[0]);
+                }
+                else {
+                    ShowIncomingMessage(buffer);
+                }
             }
         }
         
@@ -292,19 +292,14 @@ void ChatClient::OnSettingsButtonClick()
 void ChatClient::SettingsButtonClickProxy(GtkWidget* widget, gpointer data)
 {
     ChatClient *cc = (ChatClient *)data;
-    cc->Send(cc->serviceMessages.out[1]);
+    
+    if (cc->IsSocketForServerValid())
+        cc->Send(cc->serviceMessages.out[1]);
     cc->OnSettingsButtonClick();
     cc->InitSocketForServer();
     
-    if (cc->IsSocketForServerValid()) {
-        if (cc->wereSettingsChangedSuccessfully)
-            cc->Send(cc->clientNickname);
-        else
-            cc->Work();
-        cc->wereSettingsChangedSuccessfully = true;
-    }
-    else
-        cc->wereSettingsChangedSuccessfully = false;
+    if (cc->IsSocketForServerValid())
+        cc->messageManager->AddToQueue(cc->clientNickname);
 }
 
 void ChatClient::OnSendButtonClick()

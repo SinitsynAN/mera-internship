@@ -38,7 +38,6 @@ private:
     
     Logger *logger;
     
-    bool wereSettingsChangedSuccessfully; //previous change
     bool IsSocketForServerValid();
     
     void InitSocketForServer();
